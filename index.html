@@ -51,6 +51,7 @@ button{border:0;border-radius:9px;padding:11px 14px;font-size:15px;font-weight:7
 (function(){
 /* ▼ 구글 앱 스크립트 웹 앱 URL을 붙여 넣으세요 (…/exec) */
 var API='https://script.google.com/macros/s/AKfycbxNAikOkEqKPA9q3ijHy0J4UIAHJVyVsRybXx9f7YNt6TfEF3HVHajO8FaZQGzoaM01/exec';
+
 var $=function(id){return document.getElementById(id)};
 var tok='',need=0;
 function msg(t,ok){var m=$('msg');m.textContent=t||'';m.className='msg'+(ok?' ok':'')}
