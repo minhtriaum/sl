@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Stage Layout v2.21</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:#f3f5f9;font-family:-apple-system,"Segoe UI","Malgun Gothic","Apple SD Gothic Neo",sans-serif;color:#1f2733}
+.box{width:min(380px,92vw);background:#fff;border:1px solid #dfe4ec;border-radius:14px;padding:26px 24px;box-shadow:0 8px 28px rgba(30,40,60,.08)}
+h1{margin:0 0 2px;font-size:20px}
+.ver{display:inline-block;margin-left:6px;padding:1px 8px;border-radius:99px;background:#e6eefb;color:#2d5faa;font-size:12px;font-weight:700;vertical-align:middle}
+.sub{color:#6b7686;font-size:13px;margin:0 0 18px}
+label{display:block;font-size:13px;font-weight:600;margin:14px 0 6px}
+.row{display:flex;gap:6px}
+input{width:100%;padding:11px 12px;border:1px solid #cfd6e2;border-radius:9px;font-size:16px;font-family:inherit}
+input:focus{outline:none;border-color:#2d5faa;box-shadow:0 0 0 3px rgba(45,95,170,.15)}
+button{border:0;border-radius:9px;padding:11px 14px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit}
+.pri{width:100%;margin-top:16px;background:#2d5faa;color:#fff}
+.pri:disabled{opacity:.55;cursor:default}
+.eye{background:#eef1f5;color:#4a5566;flex:0 0 auto;font-weight:600;font-size:13px}
+.msg{min-height:20px;margin:12px 0 0;font-size:13px;color:#b3261e;font-weight:600}
+.msg.ok{color:#16764a}
+.hint{font-size:12.5px;color:#6b7686;line-height:1.5;margin:6px 0 0}
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+<div class="box">
+  <h1>Stage Layout<span class="ver">v2.21</span></h1>
+  <p class="sub">무대배치도</p>
+
+  <form id="fLogin" autocomplete="off">
+    <label for="code">로그인 코드</label>
+    <div class="row"><input id="code" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="코드를 입력하세요"><button type="button" class="eye" id="eye">보기</button></div>
+    <button class="pri" id="bLogin" type="submit">로그인</button>
+  </form>
+
+  <form id="fChange" autocomplete="off" hidden>
+    <p class="hint" id="chHint"></p>
+    <label for="nd1" id="chLab1">새 숫자</label>
+    <input id="nd1" type="password" inputmode="numeric" autocomplete="off">
+    <label for="nd2">다시 한 번 입력</label>
+    <input id="nd2" type="password" inputmode="numeric" autocomplete="off">
+    <button class="pri" id="bChange" type="submit">변경하고 시작</button>
+  </form>
+
+  <p class="msg" id="msg"></p>
+</div>
+<script>
+(function(){
+/* ▼ 구글 앱 스크립트 웹 앱 URL을 붙여 넣으세요 (…/exec) */
+var API='';
+
+var $=function(id){return document.getElementById(id)};
+var tok='',need=0;
+function msg(t,ok){var m=$('msg');m.textContent=t||'';m.className='msg'+(ok?' ok':'')}
+function busy(b){$('bLogin').disabled=b;$('bChange').disabled=b}
+function call(action,data){
+  var o={action:action,token:tok};for(var k in (data||{}))o[k]=data[k];
+  return fetch(API,{method:'POST',body:JSON.stringify(o)}).then(function(r){return r.json()}).catch(function(){return {ok:false,error:'서버에 연결할 수 없습니다. 잠시 후 다시 시도하세요.'}});
+}
+function enter(t){
+  tok=t;busy(true);msg('불러오는 중…',true);
+  call('app').then(function(r){
+    if(!r.ok){busy(false);try{sessionStorage.removeItem('sl.tok')}catch(e){}tok='';$('fLogin').hidden=false;$('fChange').hidden=true;msg(r.error||'다시 로그인하세요.');return}
+    try{sessionStorage.setItem('sl.tok',t)}catch(e){}
+    window.SL_AUTH={api:API,token:t,role:r.role,id:r.id,pages:r.pages};
+    document.open();document.write(r.html);document.close();
+  });
+}
+$('eye').onclick=function(){var c=$('code');var s=c.type==='password';c.type=s?'text':'password';this.textContent=s?'숨김':'보기'};
+$('fLogin').onsubmit=function(e){
+  e.preventDefault();
+  if(!API){msg('API 주소가 설정되지 않았습니다. 파일 상단의 API 값을 확인하세요.');return}
+  var c=$('code').value.trim();if(!c){msg('코드를 입력하세요.');return}
+  busy(true);msg('확인 중…',true);tok='';
+  call('login',{code:c}).then(function(r){
+    busy(false);
+    if(!r.ok){msg(r.error||'로그인하지 못했습니다.');return}
+    $('code').value='';
+    if(r.must){
+      tok=r.token;need=r.digits;
+      $('fLogin').hidden=true;$('fChange').hidden=false;
+      $('chHint').textContent='처음 로그인하셨습니다. 보안을 위해 코드 끝 '+need+'자리 숫자를 본인이 정한 번호로 바꿔 주세요.';
+      $('chLab1').textContent='새 숫자 '+need+'자리';
+      $('nd1').maxLength=need;$('nd2').maxLength=need;$('nd1').focus();msg('');
+    }else enter(r.token);
+  });
+};
+$('fChange').onsubmit=function(e){
+  e.preventDefault();
+  var a=$('nd1').value.trim(),b=$('nd2').value.trim();
+  if(!new RegExp('^\\d{'+need+'}$').test(a)){msg('숫자 '+need+'자리를 입력하세요.');return}
+  if(a!==b){msg('두 번 입력한 번호가 다릅니다.');return}
+  busy(true);msg('변경 중…',true);
+  call('changeCode',{digits:a}).then(function(r){
+    if(!r.ok){busy(false);msg(r.error||'변경하지 못했습니다.');return}
+    enter(tok);
+  });
+};
+var saved='';try{saved=sessionStorage.getItem('sl.tok')||''}catch(e){}
+if(saved&&API)enter(saved);
+})();
+</script>
+</body>
+</html>
